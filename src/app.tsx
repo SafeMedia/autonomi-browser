@@ -25,7 +25,8 @@ const getFileType = (url: string) => {
     if (["mp3", "wav", "flac"].includes(extension)) return "audio";
     if (["jpg", "jpeg", "png", "gif", "bmp", "svg"].includes(extension))
         return "image";
-    if (extension === "html" || extension === "htm") return "html";
+    if (["html", "htm"].includes(extension)) return "html";
+    if (["css", "js"].includes(extension)) return "asset";
     return "other";
 };
 
@@ -34,6 +35,29 @@ const Viewer: React.FC<{
     type: string;
     iframeRef?: React.RefObject<HTMLIFrameElement | null>;
 }> = ({ url, type, iframeRef }) => {
+    const [loading, setLoading] = useState(type === "html");
+
+    useEffect(() => {
+        setLoading(type === "html");
+    }, [url, type]);
+
+    const handleIframeLoad = () => {
+        setLoading(false);
+        if (!iframeRef?.current) return;
+
+        try {
+            const iframeWindow = iframeRef.current.contentWindow;
+            if (!iframeWindow) return;
+
+            // Capture links inside iframe to stay in iframe
+            iframeWindow.document.querySelectorAll("a").forEach((a) => {
+                a.setAttribute("target", "_self");
+            });
+        } catch {
+            // cross-origin iframes will throw, safe to ignore
+        }
+    };
+
     if (!url) return null;
 
     switch (type) {
@@ -43,14 +67,25 @@ const Viewer: React.FC<{
             return <AudioViewer src={url} />;
         case "image":
             return <ImageViewer src={url} />;
+        case "html":
+        case "asset":
         default:
             return (
-                <iframe
-                    ref={iframeRef}
-                    title="html-view"
-                    src={url}
-                    className="w-full h-[calc(100vh-96px)] border-0 bg-white"
-                />
+                <div className="w-full h-full relative flex justify-center items-center bg-white">
+                    {loading && (
+                        <div className="absolute z-10 flex justify-center items-center">
+                            <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
+                    <iframe
+                        ref={iframeRef}
+                        title="html-view"
+                        src={url}
+                        className="w-full h-[calc(100vh-96px)] border-0"
+                        style={{ backgroundColor: "white" }}
+                        onLoad={handleIframeLoad}
+                    />
+                </div>
             );
     }
 };
@@ -60,10 +95,8 @@ const App: React.FC = () => {
     const [input, setInput] = useState("");
     const [url, setUrl] = useState("");
     const [type, setType] = useState("");
-    const [loading, setLoading] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
 
-    // History stack
     const [history, setHistory] = useState<string[]>([]);
     const [currentIndex, setCurrentIndex] = useState(-1);
 
@@ -92,7 +125,7 @@ const App: React.FC = () => {
                 });
             }
         },
-        [currentIndex] // depends on currentIndex
+        [currentIndex]
     );
 
     useEffect(() => {
@@ -104,20 +137,14 @@ const App: React.FC = () => {
                 const iframeWindow = iframe.contentWindow;
                 if (!iframeWindow) return;
 
-                // Select all links
                 iframeWindow.document.querySelectorAll("a").forEach((a) => {
-                    // Force target to _self so it stays in iframe
                     a.setAttribute("target", "_self");
-
-                    // Add click listener
                     a.addEventListener("click", (e) => {
                         e.preventDefault();
                         const href = (
                             e.currentTarget as HTMLAnchorElement
                         ).getAttribute("href");
-                        if (href) {
-                            loadUrl(href, true);
-                        }
+                        if (href) loadUrl(href, true);
                     });
                 });
             } catch (err) {
@@ -131,9 +158,7 @@ const App: React.FC = () => {
 
     const fetchUrl = () => {
         if (!input.trim()) return;
-        setLoading(true);
         loadUrl(input.trim(), true);
-        setLoading(false);
     };
 
     const goBack = () => {
@@ -158,9 +183,7 @@ const App: React.FC = () => {
 
     return (
         <div className="flex flex-col min-h-screen bg-white">
-            {/* Header */}
             <header className="flex items-center px-3 h-12 sticky top-0 z-10 gap-2 backdrop-blur-md bg-[#26252C]">
-                {/* Navigation */}
                 <Button
                     variant="ghost"
                     size="icon"
@@ -188,7 +211,6 @@ const App: React.FC = () => {
                     <RefreshCcw className="w-4 h-4" />
                 </Button>
 
-                {/* Address bar */}
                 <div className="flex-1 flex items-center bg-[#1B1A1F] px-3 rounded-md">
                     <Input
                         autoCorrect="off"
@@ -198,21 +220,15 @@ const App: React.FC = () => {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && fetchUrl()}
-                        className="flex-1 border-none shadow-none !bg-transparent 
-             text-neutral-900 dark:text-white 
-             placeholder-neutral-500 dark:placeholder-neutral-400 
-             focus:outline-none 
-             selection:bg-white selection:text-black"
-                        disabled={loading}
+                        className="flex-1 border-none shadow-none !bg-transparent text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none selection:bg-white selection:text-black"
                     />
                     <Star className="w-4 h-4 text-yellow-400 cursor-pointer ml-2 hover:scale-110 transition-transform" />
                 </div>
 
-                {/* Menu + Theme toggle */}
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="hover:bg-black/5 dark:hover:bg-white/10 rounded-md "
+                    className="hover:bg-black/5 dark:hover:bg-white/10 rounded-md"
                 >
                     <Menu className="w-4 h-4" />
                 </Button>
@@ -228,7 +244,6 @@ const App: React.FC = () => {
                 </Button>
             </header>
 
-            {/* Main content */}
             <main className="flex-grow flex justify-center items-center bg-black overflow-hidden w-full h-[calc(100vh-3rem)]">
                 <Viewer
                     key={reloadKey}
