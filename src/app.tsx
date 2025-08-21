@@ -49,7 +49,7 @@ const Viewer: React.FC<{
                     ref={iframeRef}
                     title="html-view"
                     src={url}
-                    className="w-full h-[calc(100vh-96px)] border-0"
+                    className="w-full h-[calc(100vh-96px)] border-0 bg-white"
                 />
             );
     }
