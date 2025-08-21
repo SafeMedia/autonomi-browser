@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useTheme } from "next-themes";
 import ImageViewer from "./viewers/image-viewer";
 import AudioViewer from "./viewers/audio-viewer";
@@ -69,24 +69,65 @@ const App: React.FC = () => {
 
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-    const loadUrl = (newPath: string, pushHistory = true) => {
-        const pathWithSlash = newPath.startsWith("/") ? newPath : "/" + newPath;
-        const encodedPath = encodePath(pathWithSlash);
-        const fullUrl = SERVER_BASE_URL + encodedPath;
-        const detectedType = getFileType(newPath);
+    const loadUrl = useCallback(
+        (newPath: string, pushHistory = true) => {
+            const pathWithSlash = newPath.startsWith("/")
+                ? newPath
+                : "/" + newPath;
+            const encodedPath = encodePath(pathWithSlash);
+            const fullUrl = SERVER_BASE_URL + encodedPath;
+            const detectedType = getFileType(newPath);
 
-        setUrl(fullUrl);
-        setType(detectedType);
-        setInput(newPath);
-        setReloadKey((prev) => prev + 1);
+            setUrl(fullUrl);
+            setType(detectedType);
+            setInput(newPath);
+            setReloadKey((prev) => prev + 1);
 
-        if (pushHistory) {
-            const newHistory = history.slice(0, currentIndex + 1);
-            newHistory.push(fullUrl);
-            setHistory(newHistory);
-            setCurrentIndex(newHistory.length - 1);
-        }
-    };
+            if (pushHistory) {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, currentIndex + 1);
+                    newHistory.push(fullUrl);
+                    setCurrentIndex(newHistory.length - 1);
+                    return newHistory;
+                });
+            }
+        },
+        [currentIndex] // depends on currentIndex
+    );
+
+    useEffect(() => {
+        const iframe = iframeRef.current;
+        if (!iframe) return;
+
+        const onLoad = () => {
+            try {
+                const iframeWindow = iframe.contentWindow;
+                if (!iframeWindow) return;
+
+                // Select all links
+                iframeWindow.document.querySelectorAll("a").forEach((a) => {
+                    // Force target to _self so it stays in iframe
+                    a.setAttribute("target", "_self");
+
+                    // Add click listener
+                    a.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        const href = (
+                            e.currentTarget as HTMLAnchorElement
+                        ).getAttribute("href");
+                        if (href) {
+                            loadUrl(href, true);
+                        }
+                    });
+                });
+            } catch (err) {
+                console.warn("Could not inject into iframe:", err);
+            }
+        };
+
+        iframe.addEventListener("load", onLoad);
+        return () => iframe.removeEventListener("load", onLoad);
+    }, [loadUrl]);
 
     const fetchUrl = () => {
         if (!input.trim()) return;
