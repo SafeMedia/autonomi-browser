@@ -5,7 +5,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 const host = process.env.TAURI_DEV_HOST;
 
-// https://vite.dev/config/
 export default defineConfig(async () => ({
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -30,12 +29,22 @@ export default defineConfig(async () => ({
             ignored: ["**/src-tauri/**"],
         },
         proxy: {
-            // 🔑 Forward all `/antp/*` requests to local ANTP
             "/antp": {
                 target: "http://127.0.0.1:18888",
                 changeOrigin: true,
                 secure: false,
                 rewrite: (path) => path.replace(/^\/antp/, ""),
+                configure: (proxy, options) => {
+                    proxy.on("proxyRes", (proxyRes, req, res) => {
+                        if (req.url?.endsWith(".css")) {
+                            proxyRes.headers["content-type"] = "text/css";
+                        }
+                        if (req.url?.endsWith(".js")) {
+                            proxyRes.headers["content-type"] =
+                                "application/javascript";
+                        }
+                    });
+                },
             },
         },
     },
