@@ -1,18 +1,8 @@
-use base64::engine::general_purpose::STANDARD as BASE64;
-use base64::Engine;
-
-use tauri::Emitter;
-use tauri::WindowEvent;
-use tauri::{AppHandle, Window};
-
 use dirs::data_dir;
-use libp2p::Multiaddr;
-use serde::Serialize;
 use std::fs;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use anttp::{config::anttp_config::AntTpConfig, run_server, stop_server};
+use anttp::config::anttp_config::AntTpConfig;
 
 fn prepare_directories() -> (String, String) {
     // Get OS-specific "data" directory (e.g., ~/.local/share on Linux, AppData/Roaming on Windows, etc.)
@@ -36,7 +26,7 @@ fn prepare_directories() -> (String, String) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(|_app| {
             // Prepare folders before starting server
             let (media_path, cache_path) = prepare_directories();
 
