@@ -55,7 +55,7 @@ const VideoViewer: React.FC<VideoViewerProps> = ({ src }) => {
         <div className="w-full h-full">
             <video
                 ref={videoRef}
-                className="video-js vjs-big-play-centered w-full h-full"
+                className="video-js vjs-big-play-centered w-full"
                 playsInline
             />
         </div>
